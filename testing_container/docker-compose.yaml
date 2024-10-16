@@ -42,7 +42,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8098:80"
+      - "80:80"
     logging:
       options:
         max-size: "10m"
