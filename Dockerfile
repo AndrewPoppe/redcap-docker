@@ -1,8 +1,11 @@
-FROM php:8.2-apache-buster
+FROM php:8.4-apache-bookworm
 
 ## https://hub.docker.com/_/php/tags?page=1&name=apache
 
 ARG DEBIAN_FRONTEND=noninteractive
+
+
+
 
 
 # Install Webserver dep
@@ -25,12 +28,30 @@ RUN apt-get update -qq && \
     # yaml support for user prov
     && pecl install yaml \
     # INSTALL IMAGICK
-    && pecl install imagick \
-    && docker-php-ext-enable imagick \
+    #&& pecl install imagick \
+    #&& docker-php-ext-enable imagick \
     # INSTALL MYSQLI AND OTHER DOCKER FUN
     && docker-php-ext-install gd zip mysqli \
     ### cleanup
     && rm -r /var/lib/apt/lists/*
+
+#  Install imagick from source as there is no PECL version
+RUN apt-get update -qq && \
+    apt-get -yq --no-install-recommends install git && \
+    git clone https://github.com/Imagick/imagick.git --depth 1 /tmp/imagick && \
+    cd /tmp/imagick && \
+    git fetch origin master && \
+    git switch master && \
+    cd /tmp/imagick && \
+    phpize && \
+    ./configure && \
+    make && \
+    make install && \
+    docker-php-ext-enable imagick && \
+    # cleanup
+    apt-get -yq purge git && \
+    rm -r /tmp/imagick
+
 
 # Update ImageMagick policy
 RUN sed -i 's/policy\ domain=\"coder\" rights=\"none\" pattern=\"PDF\"/policy domain=\"coder\" rights=\"read\" pattern=\"PDF\"/g' /etc/ImageMagick-6/policy.xml
@@ -53,17 +74,21 @@ RUN mv /opt/redcap-docker/assets/config/apache2/conf-enabled/* /etc/apache2/conf
     chmod -R 644 /etc/apache2/conf-enabled && \
     rm -r /opt/redcap-docker/assets/config/apache2
 
+
+
 ENV WWW_DATA_UID=33
 ENV WWW_DATA_GID=33
+ENV AT_BOOT_RUN_SQL_SCRIPTS_FROM_LOCATION=/opt/redcap-docker/sql_scripts_run_once
+RUN mkdir -p $AT_BOOT_RUN_SQL_SCRIPTS_FROM_LOCATION
 ENV FIX_REDCAP_DIR_PERMISSIONS=true
 ENV PHP_INI_SCAN_DIR=/usr/local/etc/php.d:/config/php/custom_inis:
-ENV SERVER_NAME localhost
-ENV SERVER_ADMIN root
-ENV SERVER_ALIAS localhost
-ENV APACHE_RUN_HOME /var/www
-ENV APACHE_DOCUMENT_ROOT /var/www/html
-ENV APACHE_ERROR_LOG /dev/stdout
-ENV APACHE_ACCESS_LOG /dev/stdout
+ENV SERVER_NAME=localhost
+ENV SERVER_ADMIN=root
+ENV SERVER_ALIAS=localhost
+ENV APACHE_RUN_HOME=/var/www
+ENV APACHE_DOCUMENT_ROOT=/var/www/html
+ENV APACHE_ERROR_LOG=/dev/stdout
+ENV APACHE_ACCESS_LOG=/dev/stdout
 ENV REDCAP_INSTALL_ENABLE=true
 ENV REDCAP_INSTALL_SQL_SCRIPT_PATH=/config/redcap/install/install.sql
 ENV REDCAP_SUSPEND_SITE_ADMIN=false
